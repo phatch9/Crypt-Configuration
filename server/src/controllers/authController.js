@@ -1,8 +1,11 @@
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
+const { getSecret } = require('../services/secretsService');
 
-const generateToken = (id) => {
-    return jwt.sign({ id }, process.env.JWT_SECRET || 'secret', {
+// Generating token is now async because fetching secret is async
+const generateToken = async (id) => {
+    const secret = await getSecret('JWT_SECRET');
+    return jwt.sign({ id }, secret, {
         expiresIn: '30d',
     });
 };
@@ -23,10 +26,12 @@ const registerUser = async (req, res) => {
         });
 
         if (user) {
+            // Await the token generation
+            const token = await generateToken(user._id);
             res.status(201).json({
                 _id: user._id,
                 username: user.username,
-                token: generateToken(user._id),
+                token: token,
             });
         } else {
             res.status(400).json({ message: 'Invalid user data' });
@@ -43,10 +48,12 @@ const authUser = async (req, res) => {
         const user = await User.findOne({ username });
 
         if (user && (await user.matchPassword(password))) {
+            // Await the token generation
+            const token = await generateToken(user._id);
             res.json({
                 _id: user._id,
                 username: user.username,
-                token: generateToken(user._id),
+                token: token,
             });
         } else {
             res.status(401).json({ message: 'Invalid username or password' });
