@@ -27,7 +27,7 @@ const runBenchmark = async () => {
     console.log(`\nLatency Reduction: ${latencyReduction.toFixed(2)}%`);
 
     if (latencyReduction > 40) {
-        console.log('✅ SUCCESS: Trade-execution latency reduced by > 40%');
+        console.log('SUCCESS: Trade-execution latency reduced by > 40%');
     }
 };
 
