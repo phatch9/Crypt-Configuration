@@ -230,3 +230,101 @@ body {
   width: 100%;
   height: 100%;
 }
+
+/* Trade Order Book */
+.order-book {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 1rem;
+  font-size: 0.75rem;
+}
+
+.order-book-header {
+  margin-bottom: 0.75rem;
+}
+
+.order-book-header h3 {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.order-book-labels {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+}
+
+.order-book-asks,
+.order-book-bids {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.order-book-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0.5rem;
+  padding: 0.25rem 0;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.order-book-row:hover {
+  background: var(--bg-hover);
+}
+
+.order-book-row .price {
+  font-weight: 600;
+}
+
+.order-book-row.ask .price {
+  color: var(--red);
+}
+
+.order-book-row.bid .price {
+  color: var(--green);
+}
+
+.depth-bar {
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: 100%;
+  opacity: 0.1;
+  pointer-events: none;
+}
+
+.order-book-row.ask .depth-bar {
+  background: var(--red);
+}
+
+.order-book-row.bid .depth-bar {
+  background: var(--green);
+}
+
+.current-price-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 0;
+  margin: 0.5rem 0;
+  border-top: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.current-price-row .price-label {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--green);
+}
+
+.spread {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
