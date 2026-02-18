@@ -111,7 +111,7 @@ function AppContent() {
                 <div className="header-left">
                     <div className="logo">
                         <Activity size={24} />
-                        <span>CryptTrader</span>
+                        <span>Crypt Configs</span>
                     </div>
                     <div className="market-info">
                         <span className="pair">BTC/USDT</span>
