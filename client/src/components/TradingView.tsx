@@ -7,7 +7,7 @@ import type { Trade } from '../types';
 
 interface TradingViewProps {
     currentPrice: number | null;
-    priceHistory: number[];
+    chartData: { time: number, value: number }[];
     trades: Trade[];
     onExecuteTrade: (type: 'BUY' | 'SELL', amount: number, price: number) => void;
     isAuthenticated: boolean;
@@ -15,7 +15,7 @@ interface TradingViewProps {
 
 export const TradingView: React.FC<TradingViewProps> = ({
     currentPrice,
-    priceHistory,
+    chartData,
     trades,
     onExecuteTrade,
     isAuthenticated
@@ -24,7 +24,7 @@ export const TradingView: React.FC<TradingViewProps> = ({
         <div className="trading-view">
             {/* Main Chart Area */}
             <div className="chart-section">
-                <PriceChart priceHistory={priceHistory} currentPrice={currentPrice} />
+                <PriceChart chartData={chartData} currentPrice={currentPrice} />
             </div>
 
             {/* Order Book */}
