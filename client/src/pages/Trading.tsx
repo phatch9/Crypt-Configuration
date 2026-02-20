@@ -13,17 +13,27 @@ export function Trading() {
     const { lastMessage } = useWebSocket(WS_URL);
 
     const [currentPrice, setCurrentPrice] = useState<number | null>(null);
-    const [priceHistory, setPriceHistory] = useState<number[]>([]);
+    const [chartData, setChartData] = useState<{ time: number, value: number }[]>([]);
     const [trades, setTrades] = useState<Trade[]>([]);
 
     useEffect(() => {
         const fetchHistory = async () => {
             try {
                 const { data } = await axios.get<PriceData[]>(`${API_URL}/prices/history?symbol=BTCUSDT&limit=50`);
-                const prices = data.map((p) => p.price);
-                setPriceHistory(prices);
-                if (prices.length > 0) {
-                    setCurrentPrice(prices[prices.length - 1]);
+
+                let lastTime = 0;
+                const formatted = data.map((p) => {
+                    // `lightweight-charts` requires time in seconds (UNIX timestamp)
+                    let time = Math.floor(new Date(p.timestamp).getTime() / 1000);
+                    // Ensure strictly ascending time
+                    if (time <= lastTime) time = lastTime + 1;
+                    lastTime = time;
+                    return { time, value: p.price };
+                });
+
+                setChartData(formatted);
+                if (formatted.length > 0) {
+                    setCurrentPrice(formatted[formatted.length - 1].value);
                 }
             } catch (error) {
                 console.error('Failed to fetch price history:', error);
@@ -35,9 +45,13 @@ export function Trading() {
     useEffect(() => {
         if (lastMessage && lastMessage.price) {
             setCurrentPrice(lastMessage.price);
-            setPriceHistory(prev => {
-                const newHistory = [...prev, lastMessage.price];
-                return newHistory.slice(-50);
+            setChartData(prev => {
+                let time = Math.floor(new Date(lastMessage.timestamp).getTime() / 1000);
+                const lastTime = prev.length > 0 ? prev[prev.length - 1].time : 0;
+                if (time <= lastTime) time = lastTime + 1;
+
+                const newHistory = [...prev, { time, value: lastMessage.price }];
+                return newHistory.slice(-100);
             });
         }
     }, [lastMessage]);
@@ -80,7 +94,7 @@ export function Trading() {
         <main className="app-main">
             <TradingView
                 currentPrice={currentPrice}
-                priceHistory={priceHistory}
+                chartData={chartData}
                 trades={trades}
                 onExecuteTrade={handleExecuteTrade}
                 isAuthenticated={isAuthenticated}
