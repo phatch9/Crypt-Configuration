@@ -1,118 +1,124 @@
 import React, { useEffect, useRef } from 'react';
+import { createChart, IChartApi, ISeriesApi, Time, LineSeries, ColorType } from 'lightweight-charts';
 
 interface PriceChartProps {
-    priceHistory: number[];
+    chartData: { time: number; value: number }[];
     currentPrice: number | null;
 }
 
-export const PriceChart: React.FC<PriceChartProps> = ({ priceHistory, currentPrice }) => {
-    const canvasRef = useRef<HTMLCanvasElement>(null);
+export const PriceChart: React.FC<PriceChartProps> = ({ chartData, currentPrice }) => {
+    const chartContainerRef = useRef<HTMLDivElement>(null);
+    const chartRef = useRef<IChartApi | null>(null);
+    const seriesRef = useRef<ISeriesApi<"Line"> | null>(null);
 
+    // Initialize Chart
     useEffect(() => {
-        if (!canvasRef.current || priceHistory.length === 0) return;
+        if (!chartContainerRef.current) return;
 
-        const canvas = canvasRef.current;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
-
-        // Set canvas size
-        const dpr = window.devicePixelRatio || 1;
-        const rect = canvas.getBoundingClientRect();
-        canvas.width = rect.width * dpr;
-        canvas.height = rect.height * dpr;
-        ctx.scale(dpr, dpr);
-
-        // Clear canvas
-        ctx.clearRect(0, 0, rect.width, rect.height);
-
-        // Calculate dimensions
-        const padding = 40;
-        const chartWidth = rect.width - padding * 2;
-        const chartHeight = rect.height - padding * 2;
-
-        const minPrice = Math.min(...priceHistory);
-        const maxPrice = Math.max(...priceHistory);
-        const priceRange = maxPrice - minPrice || 1;
-
-        // Draw grid
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
-        ctx.lineWidth = 1;
-        for (let i = 0; i <= 5; i++) {
-            const y = padding + (chartHeight / 5) * i;
-            ctx.beginPath();
-            ctx.moveTo(padding, y);
-            ctx.lineTo(rect.width - padding, y);
-            ctx.stroke();
-        }
-
-        // Draw price labels
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
-        ctx.font = '11px Inter, sans-serif';
-        ctx.textAlign = 'right';
-        for (let i = 0; i <= 5; i++) {
-            const price = maxPrice - (priceRange / 5) * i;
-            const y = padding + (chartHeight / 5) * i;
-            ctx.fillText(price.toFixed(2), padding - 10, y + 4);
-        }
-
-        // Draw price line
-        ctx.strokeStyle = '#00ff88';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-
-        priceHistory.forEach((price, index) => {
-            const x = padding + (chartWidth / (priceHistory.length - 1)) * index;
-            const y = padding + chartHeight - ((price - minPrice) / priceRange) * chartHeight;
-
-            if (index === 0) {
-                ctx.moveTo(x, y);
-            } else {
-                ctx.lineTo(x, y);
-            }
+        const chart = createChart(chartContainerRef.current, {
+            layout: {
+                background: { type: ColorType.Solid, color: 'transparent' },
+                textColor: '#b7bdc6',
+            },
+            grid: {
+                vertLines: { color: 'rgba(43, 49, 57, 0.4)' },
+                horzLines: { color: 'rgba(43, 49, 57, 0.4)' },
+            },
+            crosshair: {
+                mode: 1, // Magnet
+            },
+            rightPriceScale: {
+                borderColor: 'rgba(43, 49, 57, 0.8)',
+            },
+            timeScale: {
+                borderColor: 'rgba(43, 49, 57, 0.8)',
+                timeVisible: true,
+                secondsVisible: false,
+            },
         });
 
-        ctx.stroke();
+        const lineSeries = chart.addSeries(LineSeries, {
+            color: '#0ecb81',
+            lineWidth: 2,
+            crosshairMarkerVisible: true,
+            crosshairMarkerRadius: 4,
+            lineType: 0,
+        });
 
-        // Draw gradient fill
-        if (priceHistory.length > 0) {
-            const gradient = ctx.createLinearGradient(0, padding, 0, rect.height - padding);
-            gradient.addColorStop(0, 'rgba(0, 255, 136, 0.2)');
-            gradient.addColorStop(1, 'rgba(0, 255, 136, 0)');
+        chartRef.current = chart;
+        seriesRef.current = lineSeries;
 
-            ctx.fillStyle = gradient;
-            ctx.beginPath();
-            ctx.moveTo(padding, rect.height - padding);
+        const handleResize = () => {
+            if (chartContainerRef.current) {
+                chart.applyOptions({
+                    width: chartContainerRef.current.clientWidth,
+                    height: chartContainerRef.current.clientHeight,
+                });
+            }
+        };
 
-            priceHistory.forEach((price, index) => {
-                const x = padding + (chartWidth / (priceHistory.length - 1)) * index;
-                const y = padding + chartHeight - ((price - minPrice) / priceRange) * chartHeight;
-                ctx.lineTo(x, y);
-            });
+        window.addEventListener('resize', handleResize);
 
-            ctx.lineTo(rect.width - padding, rect.height - padding);
-            ctx.closePath();
-            ctx.fill();
+        // Initial setup bounds
+        setTimeout(handleResize, 0);
+
+        return () => {
+            window.removeEventListener('resize', handleResize);
+            chart.remove();
+        };
+    }, []);
+
+    // Update Data
+    useEffect(() => {
+        if (seriesRef.current && chartData.length > 0) {
+            const formattedData = chartData.map(d => ({
+                time: d.time as Time,
+                value: d.value
+            }));
+
+            try {
+                seriesRef.current.setData(formattedData);
+                // Optionally fit content or adjust view
+                if (chartData.length < 50) {
+                    chartRef.current?.timeScale().fitContent();
+                }
+            } catch (e) {
+                console.error("lightweight-charts setData error:", e);
+            }
         }
-    }, [priceHistory, currentPrice]);
+    }, [chartData]);
+
+    // calculate change for UI
+    let isPositive = true;
+    if (chartData.length >= 2) {
+        const last = chartData[chartData.length - 1].value;
+        const prev = chartData[chartData.length - 2].value;
+        isPositive = last >= prev;
+    }
 
     return (
-        <div className="price-chart">
-            <div className="chart-header">
+        <div className="price-chart" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+            <div className="chart-header" style={{ flexShrink: 0, padding: '1rem', paddingBottom: 0 }}>
                 <h3>BTC/USDT</h3>
                 {currentPrice && (
                     <div className="current-price">
                         <span className="price-value">${currentPrice.toFixed(2)}</span>
                         <span className="price-change">
-                            {priceHistory.length >= 2 && (
-                                <span className={currentPrice > priceHistory[priceHistory.length - 2] ? 'positive' : 'negative'}>
-                                    {currentPrice > priceHistory[priceHistory.length - 2] ? '▲' : '▼'}
+                            {chartData.length >= 2 && (
+                                <span className={isPositive ? 'positive' : 'negative'}>
+                                    {isPositive ? '▲' : '▼'}
                                 </span>
                             )}
                         </span>
                     </div>
                 )}
             </div>
-            <canvas ref={canvasRef} className="chart-canvas" />
+            {/* The container for lightweight-charts must have a flex box or exact dimensions */}
+            <div
+                ref={chartContainerRef}
+                className="chart-canvas-container"
+                style={{ flex: 1, width: '100%', minHeight: 0, position: 'relative' }}
+            />
         </div>
     );
 };
