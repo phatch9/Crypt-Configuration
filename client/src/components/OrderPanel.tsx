@@ -131,7 +131,7 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
 
             {!isAuthenticated && (
                 <div className="auth-notice">
-                    <p>Please login to start trading</p>
+                    <p>Login to start trading</p>
                 </div>
             )}
         </div>
