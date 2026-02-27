@@ -7,18 +7,19 @@ interface UseWebSocketReturn {
     sendMessage: (message: string) => void;
 }
 
-export const useWebSocket = (url: string): UseWebSocketReturn => {
+export const useWebSocket = (url: string, symbol: string = 'BTCUSDT'): UseWebSocketReturn => {
     const [isConnected, setIsConnected] = useState(false);
     const [lastMessage, setLastMessage] = useState<WebSocketMessage | null>(null);
     const ws = useRef<WebSocket | null>(null);
-    const reconnectTimeout = useRef<NodeJS.Timeout | undefined>(undefined);
+    const reconnectTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
-    const connect = () => {
+    const connect = (wsUrl: string) => {
         try {
-            ws.current = new WebSocket(url);
+            // Append symbol query param so server filters Redis by this coin
+            const fullUrl = `${wsUrl}?symbol=${symbol.toUpperCase()}`;
+            ws.current = new WebSocket(fullUrl);
 
             ws.current.onopen = () => {
-                console.log('WebSocket connected');
                 setIsConnected(true);
             };
 
@@ -32,14 +33,8 @@ export const useWebSocket = (url: string): UseWebSocketReturn => {
             };
 
             ws.current.onclose = () => {
-                console.log('WebSocket disconnected');
                 setIsConnected(false);
-
-                // Auto-reconnect after 3 seconds
-                reconnectTimeout.current = setTimeout(() => {
-                    console.log('Attempting to reconnect...');
-                    connect();
-                }, 3000);
+                reconnectTimeout.current = setTimeout(() => connect(wsUrl), 3000);
             };
 
             ws.current.onerror = (error) => {
@@ -51,17 +46,18 @@ export const useWebSocket = (url: string): UseWebSocketReturn => {
     };
 
     useEffect(() => {
-        connect();
+        // Close existing connection before reopening with new symbol
+        if (reconnectTimeout.current) clearTimeout(reconnectTimeout.current);
+        if (ws.current) ws.current.close();
+
+        connect(url);
 
         return () => {
-            if (reconnectTimeout.current) {
-                clearTimeout(reconnectTimeout.current);
-            }
-            if (ws.current) {
-                ws.current.close();
-            }
+            if (reconnectTimeout.current) clearTimeout(reconnectTimeout.current);
+            if (ws.current) ws.current.close();
         };
-    }, [url]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [url, symbol]);
 
     const sendMessage = (message: string) => {
         if (ws.current && ws.current.readyState === WebSocket.OPEN) {
