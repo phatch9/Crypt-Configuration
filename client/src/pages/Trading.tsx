@@ -1,31 +1,68 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { TradingView } from '../components/TradingView';
-import type { Trade, PriceData } from '../types';
+import type { Trade, PriceData, Coin } from '../types';
 
 const API_URL = 'http://localhost:8000/api';
-const WS_URL = 'ws://localhost:8000';
+const WS_URL = 'ws://localhost:8000/ws';
 
 export function Trading() {
     const { user, isAuthenticated } = useAuth();
-    const { lastMessage } = useWebSocket(WS_URL);
 
+    // ── Coin list ──────────────────────────────────────────────────────────
+    const [coins, setCoins] = useState<Coin[]>([]);
+    const [selectedCoin, setSelectedCoin] = useState<Coin | null>(null);
+
+    // ── Price / chart ──────────────────────────────────────────────────────
     const [currentPrice, setCurrentPrice] = useState<number | null>(null);
-    const [chartData, setChartData] = useState<{ time: number, value: number }[]>([]);
+    const [chartData, setChartData] = useState<{ time: number; value: number }[]>([]);
     const [trades, setTrades] = useState<Trade[]>([]);
 
+    // ── WebSocket (reconnects automatically when selectedCoin changes) ─────
+    const { lastMessage } = useWebSocket(WS_URL, selectedCoin?.symbol ?? 'BTCUSDT');
+
+    // ── Fetch coin list + latest prices ───────────────────────────────────
+    const fetchCoins = useCallback(async () => {
+        try {
+            const { data } = await axios.get<Coin[]>(`${API_URL}/coins`);
+            setCoins(data);
+            // Keep selected coin's price in sync
+            if (selectedCoin) {
+                const updated = data.find(c => c.symbol === selectedCoin.symbol);
+                if (updated) setSelectedCoin(updated);
+            } else if (data.length > 0) {
+                // Default selection: Bitcoin
+                setSelectedCoin(data[0]);
+            }
+        } catch (error) {
+            console.error('Failed to fetch coin list:', error);
+        }
+    }, [selectedCoin?.symbol]);
+
+    // Initial load + poll every 5 s for coin list price updates
     useEffect(() => {
+        fetchCoins();
+        const interval = setInterval(fetchCoins, 5000);
+        return () => clearInterval(interval);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // ── Fetch price history whenever selected coin changes ─────────────────
+    useEffect(() => {
+        if (!selectedCoin) return;
+        setChartData([]);
+        setCurrentPrice(null);
+
         const fetchHistory = async () => {
             try {
-                const { data } = await axios.get<PriceData[]>(`${API_URL}/prices/history?symbol=BTCUSDT&limit=50`);
+                const { data } = await axios.get<PriceData[]>(
+                    `${API_URL}/prices/history?symbol=${selectedCoin.symbol}&limit=50`
+                );
 
                 let lastTime = 0;
                 const formatted = data.map((p) => {
-                    // `lightweight-charts` requires time in seconds (UNIX timestamp)
                     let time = Math.floor(new Date(p.timestamp).getTime() / 1000);
-                    // Ensure strictly ascending time
                     if (time <= lastTime) time = lastTime + 1;
                     lastTime = time;
                     return { time, value: p.price };
@@ -40,28 +77,25 @@ export function Trading() {
             }
         };
         fetchHistory();
-    }, []);
+    }, [selectedCoin?.symbol]);
 
+    // ── Real-time WebSocket price updates ──────────────────────────────────
     useEffect(() => {
-        if (lastMessage && lastMessage.price) {
+        if (lastMessage?.price && lastMessage.symbol === selectedCoin?.symbol) {
             setCurrentPrice(lastMessage.price);
             setChartData(prev => {
                 let time = Math.floor(new Date(lastMessage.timestamp).getTime() / 1000);
                 const lastTime = prev.length > 0 ? prev[prev.length - 1].time : 0;
                 if (time <= lastTime) time = lastTime + 1;
-
-                const newHistory = [...prev, { time, value: lastMessage.price }];
-                return newHistory.slice(-100);
+                return [...prev, { time, value: lastMessage.price }].slice(-200);
             });
         }
-    }, [lastMessage]);
+    }, [lastMessage, selectedCoin?.symbol]);
 
+    // ── Trades ─────────────────────────────────────────────────────────────
     useEffect(() => {
-        if (isAuthenticated && user) {
-            fetchTrades();
-        } else {
-            setTrades([]);
-        }
+        if (isAuthenticated && user) fetchTrades();
+        else setTrades([]);
     }, [isAuthenticated, user]);
 
     const fetchTrades = async () => {
@@ -77,26 +111,33 @@ export function Trading() {
     };
 
     const handleExecuteTrade = async (type: 'BUY' | 'SELL', amount: number, price: number) => {
-        if (!user) return;
+        if (!user || !selectedCoin) return;
         try {
             await axios.post(
                 `${API_URL}/trade`,
-                { symbol: 'BTCUSDT', type, price, amount },
+                { symbol: selectedCoin.symbol, type, price, amount, total: amount * price },
                 { headers: { Authorization: `Bearer ${user.token}` } }
             );
             fetchTrades();
         } catch (error: any) {
-            alert(error.response?.data?.message || 'Trade execution failed');
+            alert(error.response?.data?.detail || 'Trade execution failed');
         }
+    };
+
+    const handleSelectCoin = (coin: Coin) => {
+        setSelectedCoin(coin);
     };
 
     return (
         <main className="app-main">
             <TradingView
+                coins={coins}
+                selectedCoin={selectedCoin}
                 currentPrice={currentPrice}
                 chartData={chartData}
                 trades={trades}
                 onExecuteTrade={handleExecuteTrade}
+                onSelectCoin={handleSelectCoin}
                 isAuthenticated={isAuthenticated}
             />
         </main>
