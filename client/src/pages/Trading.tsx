@@ -11,11 +11,11 @@ const WS_URL = 'ws://localhost:8000/ws';
 export function Trading() {
     const { user, isAuthenticated } = useAuth();
 
-    // ── Coin list ──────────────────────────────────────────────────────────
+    // ── Coin list ──
     const [coins, setCoins] = useState<Coin[]>([]);
     const [selectedCoin, setSelectedCoin] = useState<Coin | null>(null);
 
-    // ── Price / chart ──────────────────────────────────────────────────────
+    // ── Price / Chart ──
     const [currentPrice, setCurrentPrice] = useState<number | null>(null);
     const [chartData, setChartData] = useState<{ time: number; value: number }[]>([]);
     const [trades, setTrades] = useState<Trade[]>([]);
@@ -23,7 +23,7 @@ export function Trading() {
     // ── WebSocket (reconnects automatically when selectedCoin changes) ─────
     const { lastMessage } = useWebSocket(WS_URL, selectedCoin?.symbol ?? 'BTCUSDT');
 
-    // ── Fetch coin list + latest prices ───────────────────────────────────
+    // ── Fetch coin list + latest prices ───
     const fetchCoins = useCallback(async () => {
         try {
             const { data } = await axios.get<Coin[]>(`${API_URL}/coins`);
@@ -48,7 +48,7 @@ export function Trading() {
         return () => clearInterval(interval);
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // ── Fetch price history whenever selected coin changes ─────────────────
+    // ── Fetch price history whenever selected coin changes ─────
     useEffect(() => {
         if (!selectedCoin) return;
         setChartData([]);
@@ -79,7 +79,7 @@ export function Trading() {
         fetchHistory();
     }, [selectedCoin?.symbol]);
 
-    // ── Real-time WebSocket price updates ──────────────────────────────────
+    // ── Real-time WebSocket price updates ──
     useEffect(() => {
         if (lastMessage?.price && lastMessage.symbol === selectedCoin?.symbol) {
             setCurrentPrice(lastMessage.price);
@@ -92,7 +92,7 @@ export function Trading() {
         }
     }, [lastMessage, selectedCoin?.symbol]);
 
-    // ── Trades ─────────────────────────────────────────────────────────────
+    // ── Trades ────
     useEffect(() => {
         if (isAuthenticated && user) fetchTrades();
         else setTrades([]);
