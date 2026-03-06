@@ -1,4 +1,4 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query
 from fastapi.middleware.cors import CORSMiddleware
 from database import connect_db, close_db, redis_client
 import asyncio
@@ -26,7 +26,6 @@ binance_task = None
 async def startup_event():
     await connect_db()
     global binance_task
-    # Start the binance stream in the background
     binance_task = asyncio.create_task(connect_binance())
 
 @app.on_event("shutdown")
@@ -35,25 +34,49 @@ async def shutdown_event():
         binance_task.cancel()
     await close_db()
 
-@app.websocket("/")
-async def websocket_endpoint(websocket: WebSocket):
+@app.websocket("/ws")
+async def websocket_endpoint(
+    websocket: WebSocket,
+    symbol: str = Query(default="BTCUSDT")
+):
+    """
+    Per-symbol WebSocket endpoint.
+    Connect with: ws://localhost:8000/ws?symbol=ETHUSDT
+    Falls back to the legacy root path for backward compat (handled below).
+    """
+    symbol = symbol.upper()
     await websocket.accept()
-    print("Client connected to local WS (Python)")
+    print(f"Client connected — subscribing to {symbol}")
+
     pubsub = redis_client.pubsub()
-    await pubsub.subscribe("price_updates")
-    
+    # Subscribe to the per-symbol Redis channel
+    await pubsub.subscribe(f"price:{symbol}")
+
     try:
         while True:
-            # We simultaneously listen to the websocket (for client disconnects) 
-            # and to redis for messages to forward
             message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=0.1)
-            if message and message['type'] == 'message':
-                data = message['data']
-                await websocket.send_text(data)
-            
-            # small sleep to yield control
+            if message and message["type"] == "message":
+                await websocket.send_text(message["data"])
             await asyncio.sleep(0.01)
     except WebSocketDisconnect:
-        print("Client disconnected")
+        print(f"Client disconnected from {symbol}")
     finally:
-        await pubsub.unsubscribe("price_updates")
+        await pubsub.unsubscribe(f"price:{symbol}")
+
+# Root WebSocket kept for backward compatibility 
+@app.websocket("/")
+async def websocket_legacy(websocket: WebSocket):
+    await websocket.accept()
+    print("Client connected (legacy WS — BTCUSDT)")
+    pubsub = redis_client.pubsub()
+    await pubsub.subscribe("price:BTCUSDT")
+    try:
+        while True:
+            message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=0.1)
+            if message and message["type"] == "message":
+                await websocket.send_text(message["data"])
+            await asyncio.sleep(0.01)
+    except WebSocketDisconnect:
+        print("lient disconnected")
+    finally:
+        await pubsub.unsubscribe("price:BTCUSDT")
