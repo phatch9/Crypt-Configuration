@@ -1,3 +1,12 @@
+// Coin
+export interface Coin {
+    symbol: string;       // e.g. "ETHUSDT"
+    name: string;         // e.g. "Ethereum"
+    base: string;         // e.g. "ETH"
+    iconSlug: string;     // CoinGecko slug for icon URL
+    price: number | null; // latest price from Redis cache
+}
+
 // User & Authentication
 export interface User {
     _id: string;
