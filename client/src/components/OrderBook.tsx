@@ -3,13 +3,15 @@ import type { OrderBookEntry } from '../types';
 
 interface OrderBookProps {
     currentPrice: number | null;
+    base: string;
 }
+
 
 interface OrderBookEntryWithDepth extends OrderBookEntry {
     cumulativeTotal: number;
 }
 
-export const OrderBook: React.FC<OrderBookProps> = ({ currentPrice }) => {
+export const OrderBook: React.FC<OrderBookProps> = ({ currentPrice, base }) => {
     // Mock order book data with cumulative totals for depth chart
     const generateMockOrders = (basePrice: number, isBid: boolean): OrderBookEntryWithDepth[] => {
         const orders: OrderBookEntryWithDepth[] = [];
@@ -46,7 +48,7 @@ export const OrderBook: React.FC<OrderBookProps> = ({ currentPrice }) => {
 
             <div className="order-book-labels">
                 <span>Price (USDT)</span>
-                <span>Amount (BTC)</span>
+                <span>Amount ({base})</span>
                 <span>Total</span>
             </div>
 
