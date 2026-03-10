@@ -4,12 +4,15 @@ interface OrderPanelProps {
     currentPrice: number | null;
     onExecuteTrade: (type: 'BUY' | 'SELL', amount: number, price: number) => void;
     isAuthenticated: boolean;
+    base: string;
 }
+
 
 export const OrderPanel: React.FC<OrderPanelProps> = ({
     currentPrice,
     onExecuteTrade,
-    isAuthenticated
+    isAuthenticated,
+    base
 }) => {
     const [activeTab, setActiveTab] = useState<'BUY' | 'SELL'>('BUY');
     const [orderType, setOrderType] = useState<'MARKET' | 'LIMIT'>('MARKET');
@@ -100,7 +103,7 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
                 )}
 
                 <div className="form-group">
-                    <label>Amount (BTC)</label>
+                    <label>Amount ({base})</label>
                     <input
                         type="number"
                         step="0.0001"
@@ -123,7 +126,7 @@ export const OrderPanel: React.FC<OrderPanelProps> = ({
                     disabled={!isAuthenticated}
                 >
                     {isAuthenticated
-                        ? `${activeTab} BTC`
+                        ? `${activeTab} ${base}`
                         : 'Login to Trade'
                     }
                 </button>
