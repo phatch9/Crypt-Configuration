@@ -41,8 +41,8 @@ export const TradeHistory: React.FC<TradeHistoryProps> = ({ trades }) => {
                             <span className={`type ${trade.type.toLowerCase()}`}>
                                 {trade.type}
                             </span>
-                            <span className="price">${trade.price.toFixed(2)}</span>
-                            <span className="amount">{trade.amount.toFixed(4)} BTC</span>
+                            <span className="price">${trade.price.toFixed(4)}</span>
+                            <span className="amount">{trade.amount.toFixed(4)} {trade.symbol.replace('USDT', '')}</span>
                             <span className="total">${trade.total.toFixed(2)}</span>
                         </div>
                     ))
