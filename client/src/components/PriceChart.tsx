@@ -4,9 +4,10 @@ import { createChart, IChartApi, ISeriesApi, Time, LineSeries, ColorType } from 
 interface PriceChartProps {
     chartData: { time: number; value: number }[];
     currentPrice: number | null;
+    base: string;
 }
 
-export const PriceChart: React.FC<PriceChartProps> = ({ chartData, currentPrice }) => {
+export const PriceChart: React.FC<PriceChartProps> = ({ chartData, currentPrice, base }) => {
     const chartContainerRef = useRef<HTMLDivElement>(null);
     const chartRef = useRef<IChartApi | null>(null);
     const seriesRef = useRef<ISeriesApi<"Line"> | null>(null);
@@ -24,12 +25,8 @@ export const PriceChart: React.FC<PriceChartProps> = ({ chartData, currentPrice 
                 vertLines: { color: 'rgba(43, 49, 57, 0.4)' },
                 horzLines: { color: 'rgba(43, 49, 57, 0.4)' },
             },
-            crosshair: {
-                mode: 1, // Magnet
-            },
-            rightPriceScale: {
-                borderColor: 'rgba(43, 49, 57, 0.8)',
-            },
+            crosshair: { mode: 1 },
+            rightPriceScale: { borderColor: 'rgba(43, 49, 57, 0.8)' },
             timeScale: {
                 borderColor: 'rgba(43, 49, 57, 0.8)',
                 timeVisible: true,
@@ -58,8 +55,6 @@ export const PriceChart: React.FC<PriceChartProps> = ({ chartData, currentPrice 
         };
 
         window.addEventListener('resize', handleResize);
-
-        // Initial setup bounds
         setTimeout(handleResize, 0);
 
         return () => {
@@ -71,38 +66,38 @@ export const PriceChart: React.FC<PriceChartProps> = ({ chartData, currentPrice 
     // Update Data
     useEffect(() => {
         if (seriesRef.current && chartData.length > 0) {
-            const formattedData = chartData.map(d => ({
-                time: d.time as Time,
-                value: d.value
-            }));
-
+            const formattedData = chartData.map(d => ({ time: d.time as Time, value: d.value }));
             try {
                 seriesRef.current.setData(formattedData);
-                // Optionally fit content or adjust view
-                if (chartData.length < 50) {
-                    chartRef.current?.timeScale().fitContent();
-                }
+                if (chartData.length < 50) chartRef.current?.timeScale().fitContent();
             } catch (e) {
-                console.error("lightweight-charts setData error:", e);
+                console.error('lightweight-charts setData error:', e);
             }
+        } else if (seriesRef.current && chartData.length === 0) {
+            // Clear chart when coin switches
+            try { seriesRef.current.setData([]); } catch (_) { }
         }
     }, [chartData]);
 
-    // calculate change for UI
     let isPositive = true;
     if (chartData.length >= 2) {
-        const last = chartData[chartData.length - 1].value;
-        const prev = chartData[chartData.length - 2].value;
-        isPositive = last >= prev;
+        isPositive = chartData[chartData.length - 1].value >= chartData[chartData.length - 2].value;
     }
+
+    const displayPrice = () => {
+        if (currentPrice === null) return '—';
+        if (base === 'SHIB') return `$${currentPrice.toFixed(8)}`;
+        if (['DOGE', 'ADA', 'XRP'].includes(base)) return `$${currentPrice.toFixed(4)}`;
+        return `$${currentPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    };
 
     return (
         <div className="price-chart" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
             <div className="chart-header" style={{ flexShrink: 0, padding: '1rem', paddingBottom: 0 }}>
-                <h3>BTC/USDT</h3>
+                <h3>{base}/USDT</h3>
                 {currentPrice && (
                     <div className="current-price">
-                        <span className="price-value">${currentPrice.toFixed(2)}</span>
+                        <span className="price-value">{displayPrice()}</span>
                         <span className="price-change">
                             {chartData.length >= 2 && (
                                 <span className={isPositive ? 'positive' : 'negative'}>
@@ -113,7 +108,6 @@ export const PriceChart: React.FC<PriceChartProps> = ({ chartData, currentPrice 
                     </div>
                 )}
             </div>
-            {/* The container for lightweight-charts must have a flex box or exact dimensions */}
             <div
                 ref={chartContainerRef}
                 className="chart-canvas-container"
