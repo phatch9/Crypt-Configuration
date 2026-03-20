@@ -15,5 +15,30 @@ services:
     ports:
       - "6379:6379"
 
+  server:
+    build:
+      context: ./server-python
+      dockerfile: Dockerfile
+    image: ${DOCKER_USERNAME:-drcrypt}/drcrypt-server:latest
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./server-python/.env
+    depends_on:
+      - mongodb
+      - redis
+    restart: unless-stopped
+
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    image: ${DOCKER_USERNAME:-drcrypt}/drcrypt-client:latest
+    ports:
+      - "80:80"
+    depends_on:
+      - server
+    restart: unless-stopped
+
 volumes:
   mongo_data:
